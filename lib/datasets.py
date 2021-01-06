@@ -11,8 +11,8 @@ ds = Ingredient('dataset')
 
 @ds.config
 def cfg():
-    data_path = ''  # base directory for data
-    h5_path = '' # dataset name
+    #data_path = ''  # base directory for data
+    #h5_path = '' # dataset name
     masks = False
     preprocess_style = 'basic'
 

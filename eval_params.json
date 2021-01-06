@@ -4,14 +4,8 @@
       "inference_iters": 5,
       "z_size": 64,
       "input_size": [
-          3, 64, 64
+          3, 32, 32
       ]
-    },
-    "dataset": {
-      "data_path": "",
-      "h5_path": "clevr6_todo.h5",
-      "masks": false,
-      "preprocess_": "basic"
     },
     "seed": 1,
     "test": {
@@ -19,7 +13,11 @@
       "checkpoint": "",
       "checkpoint_dir": "",
       "mode": "val",
-      "num_workers": 8,
-      "experiment_name": "IODINE-ARI"
+      "num_workers": 1,
+      "use_geco": false,
+      "geco_reconstruction_target": -62500,
+      "geco_ema_alpha": 0.99,
+      "geco_beta_stepsize": 1e-6,
+      "experiment_name": "IODINE-LIKELIHOOD"
     }
   }

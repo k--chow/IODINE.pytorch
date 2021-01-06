@@ -3,13 +3,15 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from torch.utils.data.distributed import DistributedSampler
+from torchvision import transforms
+import pdb
 
 from sacred import Experiment, cli_option
 
 from warmup_scheduler import GradualWarmupScheduler
 
-from lib.datasets import ds
-from lib.datasets import StaticHdF5Dataset
+#from lib.datasets import ds
+#from lib.datasets import StaticHdF5Dataset
 from lib.model import net
 from lib.model import IODINE
 from lib.geco import GECO
@@ -24,7 +26,7 @@ import pprint
 def local_rank_option(args, run):
     run.info['local_rank'] = args
 
-ex = Experiment('TRAINING', ingredients=[ds, net], additional_cli_options=[local_rank_option])
+ex = Experiment('TRAINING', ingredients=[net], additional_cli_options=[local_rank_option])
 
 @ex.config
 def cfg():
@@ -120,8 +122,11 @@ def run(training, seed, _run):
         model_opt.load_state_dict(state['model_opt'])
         step = state['step']
         checkpoint_step = step
-
-    tr_dataset = StaticHdF5Dataset(d_set=training['mode'])
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+    tr_dataset = torchvision.datasets.CIFAR10('./', download=True, transform=transform)
+    #tr_dataset = StaticHdF5Dataset(d_set=training['mode'])
     batch_size = training['batch_size']
     tr_sampler = DistributedSampler(dataset=tr_dataset)
     tr_dataloader = torch.utils.data.DataLoader(tr_dataset,
@@ -138,7 +143,9 @@ def run(training, seed, _run):
             data_iter = tr_dataloader
 
         for batch in data_iter:
-            img_batch = batch['imgs'].to(local_rank)
+            #pdb.set_trace()
+            
+            img_batch = batch[0].to(local_rank)
             model_opt.zero_grad()
 
             out_dict = model(img_batch, model_geco, step)

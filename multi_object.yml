@@ -15,9 +15,9 @@ dependencies:
   - bleach=3.2.0=py_0
   - brotlipy=0.7.0=py37h7b6447c_1000
   - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2020.7.22=0
+  - ca-certificates=2020.12.5=ha878542_0
   - cairo=1.14.12=h8948797_3
-  - certifi=2020.6.20=py37_0
+  - certifi=2020.12.5=py37h89c1867_0
   - cffi=1.14.0=py37h2e261b9_0
   - chardet=3.0.4=py37_1003
   - cloudpickle=1.6.0=py_0
@@ -105,12 +105,13 @@ dependencies:
   - numpy-base=1.19.1=py37hfa32c7d_0
   - olefile=0.46=py37_0
   - opencv=3.4.2=py37h6fd60c2_1
-  - openssl=1.1.1g=h7b6447c_0
+  - openssl=1.1.1i=h27cfd23_0
   - pandas=1.1.1=py37he6710b0_0
   - pandoc=2.10.1=0
   - pandocfilters=1.4.2=py37_1
   - pango=1.42.4=h049681c_0
   - parso=0.7.0=py_0
+  - patsy=0.5.1=py_0
   - pcre=8.44=he6710b0_0
   - pexpect=4.8.0=py37_1
   - pickleshare=0.7.5=py37_1001
@@ -133,6 +134,7 @@ dependencies:
   - python=3.7.7=hcf32534_0_cpython
   - python-dateutil=2.8.1=py_0
   - python-graphviz=0.14=py_0
+  - python_abi=3.7=1_cp37m
   - pytorch=1.5.0=py3.7_cuda10.2.89_cudnn7.6.5_0
   - pytz=2020.1=py_0
   - pywavelets=1.1.1=py37h7b6447c_0
@@ -149,6 +151,7 @@ dependencies:
   - sip=4.19.8=py37hf484d3e_0
   - six=1.15.0=py_0
   - sqlite=3.33.0=h62c20be_0
+  - statsmodels=0.12.1=py37ha21ca33_1
   - terminado=0.8.3=py37_0
   - testpath=0.4.4=py_0
   - tk=8.6.10=hbc83047_0
@@ -175,6 +178,8 @@ dependencies:
     - colorama==0.4.1
     - docopt==0.6.2
     - enum34==1.1.6
+    - gitdb==4.0.5
+    - gitpython==3.1.11
     - google-auth==1.21.2
     - google-auth-oauthlib==0.4.1
     - googledrivedownloader==0.4
@@ -202,7 +207,10 @@ dependencies:
     - rsa==4.6
     - sacred==0.8.1
     - scikit-learn==0.22.1
+    - smmap==3.0.4
     - tb-nightly==2.4.0a20200917
     - tensorboard-plugin-wit==1.7.0
     - urllib3==1.25.7
+    - warmup-scheduler==0.3.2
     - werkzeug==1.0.1
+prefix: /home/kchow/anaconda3/envs/multi-object

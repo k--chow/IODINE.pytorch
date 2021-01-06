@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torchvision
+from torchvision import transforms
+import pdb
 
 import h5py
 import numpy as np
@@ -10,7 +12,7 @@ from lib.datasets import ds
 from lib.datasets import StaticHdF5Dataset
 from lib.model import net
 from lib.model import IODINE
-from lib.utils import mvn, _softplus_to_std
+from lib.utils import mvn, _softplus_to_std, std_mvn, gmm_loglikelihood
 from lib.metrics import adjusted_rand_index
 from pathlib import Path
 import shutil
@@ -33,7 +35,7 @@ def cfg():
             'out_dir': '',
             'checkpoint_dir': '',
             'checkpoint': '',
-            'experiment_name': 'NAME_HERE'
+            'experiment_name': 'NAME_HERE',
         }
 
 # @ex.capture ??
@@ -60,12 +62,15 @@ def do_eval(test, local_rank, seed):
     torch.distributed.init_process_group(backend='nccl', init_method='env://')
     local_rank = 'cuda:{}'.format(local_rank)
     torch.cuda.set_device(local_rank)
-
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
     # Data
-    te_dataset = StaticHdF5Dataset(d_set=test['mode'])
+    #te_dataset = StaticHdF5Dataset(d_set=test['mode'])
+    te_dataset = torchvision.datasets.CIFAR10('./', download=True, train=False, transform=transform)
     te_dataloader = torch.utils.data.DataLoader(te_dataset, batch_size=1, shuffle=True, num_workers=test['num_workers'], drop_last=True)
     checkpoint = Path(test['checkpoint_dir'], test['checkpoint'])
-        
+    checkpoint_dir = Path(test['out_dir'], 'weights')
     # TODO: Assert nproc = 1
     out_dir = Path(test['out_dir'], 'results', test['experiment_name'], checkpoint.stem + '.pth' + f'-seed={seed}')
     if not out_dir.exists():
@@ -74,7 +79,21 @@ def do_eval(test, local_rank, seed):
     print(f'saving results in {out_dir}')
     model = restore_from_checkpoint(test, checkpoint, local_rank)
     model.eval()
-
+    
+    if test['use_geco']:
+        model_geco = GECO(test['geco_reconstruction_target'], test['geco_ema_alpha'])
+    else:
+        model_geco = None
+        
+    checkpoint = checkpoint_dir / test['checkpoint']
+    map_location = {'cuda:0': local_rank}
+    state = torch.load(checkpoint, map_location=map_location)
+    model.load_state_dict(state['model'])
+    #model_opt.load_state_dict(state['model_opt'])
+    step = state['step']
+    checkpoint_step = step
+   
+    
     num_images = 320
     all_ARI = []
     all_pred_masks = []
@@ -84,11 +103,35 @@ def do_eval(test, local_rank, seed):
         
         if total_images >= num_images:
             break
-        imgs = batch['imgs'].to('cuda')
-
+        imgs = batch[0].to('cuda')
+        outs = model(imgs, model_geco, step)
         with torch.no_grad():
-        
-            outs = model(imgs)
+            
+            p_z = std_mvn(shape=[1 * 4, 64], device=imgs.device)# 64
+            
+            lamda = outs['lamda']
+            loc_z, sp_z = lamda.chunk(2, dim=1)
+            loc_z, sp_z = loc_z.contiguous(), sp_z.contiguous()
+            q_z = mvn(loc_z, sp_z)
+
+            z = q_z.sample()
+            # for NLL 
+            x_loc, mask_logits = model.module.image_decoder(z)  #[N*K, C, H, W]
+            x_loc = x_loc.view(1, 4, 3, 32, 32) #N*K pos 2 
+
+            # softmax across slots
+            mask_logits = mask_logits.view(1, 4, 1, 32, 32)
+            mask_logprobs = nn.functional.log_softmax(mask_logits, dim=1)
+
+            # NLL [batch_size, 1, H, W]
+            log_var = (2 * model.module.gmm_log_scale).to(imgs.device)
+            nll, ll_outs = gmm_loglikelihood(imgs, x_loc, log_var, mask_logprobs)
+            
+            log_pz = torch.sum(p_z.log_prob(z)) # sum also!
+            log_qzx = torch.sum(q_z.log_prob(z)) # sum also!
+            
+            pdb.set_trace()
+            """
             true_masks = batch['masks'].to('cuda')
             H = imgs.shape[2]
             W = imgs.shape[3]
@@ -111,6 +154,7 @@ def do_eval(test, local_rank, seed):
 
             ari = ari.data.cpu().numpy().reshape(-1)
             all_ARI += [ari]
+            """
         
     print('mean ARI: {}, std dev: {}'.format(np.mean(all_ARI), np.std(all_ARI)))
     all_pred_masks = np.stack(all_pred_masks)

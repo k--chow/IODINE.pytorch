@@ -1,3 +1,4 @@
+import pdb
 import torch
 import torch.nn as nn
 import math
@@ -11,12 +12,13 @@ net = Ingredient('Net')
 
 @net.config
 def cfg():
+    # be careful here with the channels!
     input_size = [3,64,64] # [C, H, W]
     z_size = 64
     K = 4
     inference_iters = 4
     log_scale = math.log(0.10)  # log base e
-    refinenet_channels_in = 16
+    refinenet_channels_in = 16 # adjust this to 16
     lstm_dim = 128
     conv_channels = 32
     kl_beta = 1
@@ -119,11 +121,11 @@ class SpatialBroadcastDecoder(nn.Module):
         z_sb = SpatialBroadcastDecoder.spatial_broadcast(z, self.h + 8, self.w + 8)
         out = self.decode(z_sb) # [batch_size * K, output_size, h, w]
         return torch.sigmoid(out[:,:3]), out[:,3]
-
+        # important detail, output # the number of channels
 
 class IODINE(nn.Module):
     @net.capture
-    def __init__(self, z_size, input_size, K, inference_iters, batch_size, log_scale, kl_beta, lstm_dim, geco_warm_start):
+    def __init__(self, z_size, input_size, K, inference_iters, batch_size, log_scale, kl_beta, lstm_dim, geco_warm_start, conv_channels):
         super(IODINE, self).__init__()
 
         self.z_size = z_size
@@ -151,7 +153,7 @@ class IODINE(nn.Module):
         self.layer_norms = torch.nn.ModuleList([
                 nn.LayerNorm((1,n,n), elementwise_affine=False),
                 nn.LayerNorm((1,n,n), elementwise_affine=False),
-                nn.LayerNorm((3,n,n), elementwise_affine=False),
+                nn.LayerNorm((3,n,n), elementwise_affine=False),# change 1 to channel
                 nn.LayerNorm((1,n,n), elementwise_affine=False),
                 nn.LayerNorm((self.z_size,), elementwise_affine=False), # layer_norm_mean
                 nn.LayerNorm((self.z_size,), elementwise_affine=False)  # layer_norm_log_scale
@@ -207,6 +209,7 @@ class IODINE(nn.Module):
         px_l = layer_norms[0](px_l).detach()
         #loo_px_l = layer_norms[1](loo_px_l).detach()
         d_means = layer_norms[2](d_means).detach()
+        # problem hre
         d_masks = layer_norms[3](d_masks).detach()
         d_loc_z = layer_norms[4](d_loc_z).detach()
         d_sp_z = layer_norms[5](d_sp_z).detach()
@@ -248,6 +251,7 @@ class IODINE(nn.Module):
             z = q_z.rsample()
 
             # Get means and masks
+            #pdb.set_trace()
             x_loc, mask_logits = self.image_decoder(z)  #[N*K, C, H, W]
             x_loc = x_loc.view(self.batch_size, self.K, C, H, W)
 
@@ -282,10 +286,9 @@ class IODINE(nn.Module):
 
             # compute refine inputs
             x_ = x.repeat(self.K, 1, 1, 1).view(self.batch_size, self.K, C, H, W)
-
-            img_inps, vec_inps = IODINE.refinenet_inputs(x_, x_loc, mask_logprobs,
-                    mask_logits, ll_outs['log_p_k'], ll_outs['normal_ll'], lamda, loss, self.layer_norms, not self.training)
-
+            #pdb.set_trace()
+            img_inps, vec_inps = IODINE.refinenet_inputs(x_, x_loc, mask_logprobs, mask_logits, ll_outs['log_p_k'], ll_outs['normal_ll'], lamda, loss, self.layer_norms, not self.training)
+            #pdb.set_trace()
             delta, (h,c) = self.refine_net(img_inps, vec_inps, h, c)
             lamda = lamda + delta
         
@@ -295,5 +298,6 @@ class IODINE(nn.Module):
             'kl': torch.mean(kl_div),
             'x_means': x_means,
             'masks': masks,
-            'z': z
+            'z': z,
+            'lamda': lamda
         }
